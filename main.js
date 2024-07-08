@@ -1,6 +1,5 @@
 let APP_ID = "3c585286d28847c985c6996ab4ddddd4"
 
-
 let token = null;
 let uid = String(Math.floor(Math.random() * 10000))
 
@@ -27,13 +26,16 @@ const servers = {
     ]
 }
 
-
 let constraints = {
     video:{
         width:{min:640, ideal:1920, max:1920},
         height:{min:480, ideal:1080, max:1080},
     },
-    audio:true
+    audio:{
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+    }
 }
 
 let init = async () => {
@@ -51,7 +53,6 @@ let init = async () => {
     localStream = await navigator.mediaDevices.getUserMedia(constraints)
     document.getElementById('user-1').srcObject = localStream
 }
- 
 
 let handleUserLeft = (MemberId) => {
     document.getElementById('user-2').style.display = 'none'
@@ -59,7 +60,6 @@ let handleUserLeft = (MemberId) => {
 }
 
 let handleMessageFromPeer = async (message, MemberId) => {
-
     message = JSON.parse(message.text)
 
     if(message.type === 'offer'){
@@ -75,15 +75,12 @@ let handleMessageFromPeer = async (message, MemberId) => {
             peerConnection.addIceCandidate(message.candidate)
         }
     }
-
-
 }
 
 let handleUserJoined = async (MemberId) => {
     console.log('A new user joined the channel:', MemberId)
     createOffer(MemberId)
 }
-
 
 let createPeerConnection = async (MemberId) => {
     peerConnection = new RTCPeerConnection(servers)
@@ -94,18 +91,23 @@ let createPeerConnection = async (MemberId) => {
 
     document.getElementById('user-1').classList.add('smallFrame')
 
-
     if(!localStream){
-        localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false})
+        localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true})
         document.getElementById('user-1').srcObject = localStream
     }
 
     localStream.getTracks().forEach((track) => {
         peerConnection.addTrack(track, localStream)
+        if (track.kind === 'audio') {
+            console.log('Audio track added to peer connection')
+        }
     })
 
     peerConnection.ontrack = (event) => {
         event.streams[0].getTracks().forEach((track) => {
+            if (track.kind === 'audio') {
+                console.log('Remote audio track received')
+            }
             remoteStream.addTrack(track)
         })
     }
@@ -126,7 +128,6 @@ let createOffer = async (MemberId) => {
     client.sendMessageToPeer({text:JSON.stringify({'type':'offer', 'offer':offer})}, MemberId)
 }
 
-
 let createAnswer = async (MemberId, offer) => {
     await createPeerConnection(MemberId)
 
@@ -138,13 +139,11 @@ let createAnswer = async (MemberId, offer) => {
     client.sendMessageToPeer({text:JSON.stringify({'type':'answer', 'answer':answer})}, MemberId)
 }
 
-
 let addAnswer = async (answer) => {
     if(!peerConnection.currentRemoteDescription){
         peerConnection.setRemoteDescription(answer)
     }
 }
-
 
 let leaveChannel = async () => {
     await channel.leave()
@@ -174,7 +173,7 @@ let toggleMic = async () => {
         document.getElementById('mic-btn').style.backgroundColor = 'rgb(179, 102, 249, .9)'
     }
 }
-  
+
 window.addEventListener('beforeunload', leaveChannel)
 
 document.getElementById('camera-btn').addEventListener('click', toggleCamera)
