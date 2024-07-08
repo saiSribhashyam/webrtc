@@ -50,8 +50,12 @@ let init = async () => {
 
     client.on('MessageFromPeer', handleMessageFromPeer)
 
-    localStream = await navigator.mediaDevices.getUserMedia(constraints)
-    document.getElementById('user-1').srcObject = localStream
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia(constraints)
+        document.getElementById('user-1').srcObject = localStream
+    } catch (e) {
+        console.error('Error accessing media devices:', e)
+    }
 }
 
 let handleUserLeft = (MemberId) => {
@@ -93,8 +97,7 @@ let createPeerConnection = async (MemberId) => {
 
     if(!localStream){
         localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true})
-        localStream2 = await navigator.mediaDevices.getUserMedia({video:true, audio:false})
-        document.getElementById('user-1').srcObject = localStream2
+        document.getElementById('user-1').srcObject = localStream
     }
 
     localStream.getTracks().forEach((track) => {
@@ -154,24 +157,33 @@ let leaveChannel = async () => {
 let toggleCamera = async () => {
     let videoTrack = localStream.getTracks().find(track => track.kind === 'video')
 
-    if(videoTrack.enabled){
-        videoTrack.enabled = false
-        document.getElementById('camera-btn').style.backgroundColor = 'rgb(255, 80, 80)'
-    }else{
-        videoTrack.enabled = true
-        document.getElementById('camera-btn').style.backgroundColor = 'rgb(179, 102, 249, .9)'
+    if(videoTrack){
+        videoTrack.enabled = !videoTrack.enabled
+        document.getElementById('camera-btn').style.backgroundColor = videoTrack.enabled ? 'rgb(179, 102, 249, .9)' : 'rgb(255, 80, 80)'
+    } else {
+        console.error('No video track found')
     }
 }
 
 let toggleMic = async () => {
     let audioTrack = localStream.getTracks().find(track => track.kind === 'audio')
 
-    if(audioTrack.enabled){
-        audioTrack.enabled = false
-        document.getElementById('mic-btn').style.backgroundColor = 'rgb(255, 80, 80)'
-    }else{
-        audioTrack.enabled = true
-        document.getElementById('mic-btn').style.backgroundColor = 'rgb(179, 102, 249, .9)'
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled
+        document.getElementById('mic-btn').style.backgroundColor = audioTrack.enabled ? 'rgb(179, 102, 249, .9)' : 'rgb(255, 80, 80)'
+    } else {
+        console.error('No audio track found')
+        // Optionally, you could try to add an audio track here
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            const newAudioTrack = audioStream.getAudioTracks()[0]
+            localStream.addTrack(newAudioTrack)
+            peerConnection.addTrack(newAudioTrack, localStream)
+            document.getElementById('mic-btn').style.backgroundColor = 'rgb(179, 102, 249, .9)'
+        } catch (e) {
+            console.error('Error adding audio track:', e)
+            document.getElementById('mic-btn').style.backgroundColor = 'rgb(255, 80, 80)'
+        }
     }
 }
 
